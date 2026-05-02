@@ -1,0 +1,55 @@
+name: Extract ZIP and Setup Project
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Extract ZIP file
+        run: |
+          unzip -o votechain-india-project.zip -d extracted_temp
+          echo "=== Extracted structure ==="
+          ls -la extracted_temp/
+          # Handle nested folder if present
+          INNER=$(ls extracted_temp/)
+          echo "Inner: $INNER"
+          if [ -d "extracted_temp/$INNER" ] && [ "$(ls extracted_temp/ | wc -l)" = "1" ]; then
+            echo "Nested folder detected, using inner folder"
+            cp -r extracted_temp/$INNER/* .
+          else
+            cp -r extracted_temp/* .
+          fi
+
+      - name: Remove unwanted files
+        run: |
+          rm -rf node_modules dist .git_old extracted_temp votechain-india-project.zip
+          rm -f *.tsbuildinfo
+          echo "=== Final structure ==="
+          ls -la
+
+      - name: Ensure .gitignore exists
+        run: |
+          cat > .gitignore << 'EOF'
+          node_modules
+          dist
+          .env
+          *.tsbuildinfo
+          EOF
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status
+          git commit -m "Extract project files from ZIP" || echo "Nothing to commit"
+          git push
